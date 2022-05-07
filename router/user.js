@@ -1,0 +1,63 @@
+const express = require('express')
+const Result = require('../models/Result')
+const { login, findUser } = require('../services/user')
+const { md5, decoded } = require('../utils')
+const { PWD_SALT, PRIVATE_KEY, JWT_EXPIRED } = require('../utils/constant')
+// express-validator是一个功能强大的表单验证器
+const { body, validationResult } = require('express-validator')
+const boom = require('boom')
+const jwt = require('jsonwebtoken')
+const { user } = require('../db/config')
+
+const router = express.Router()
+
+router.post(
+  '/login',
+  [
+    body('username').isString().withMessage('用户名必须为字符'),
+    body('password').isString().withMessage('密码必须为字符')
+  ],
+  function (req, res, next) {
+    const err = validationResult(req)
+    if (!err.isEmpty()) {
+      // 通过两次结构，拿到errors里面的msg
+      const [{ msg }] = err.errors
+      next(boom.badRequest(msg))
+    } else {
+      let { username, password } = req.body
+      // 把用户输入的密码加密，再去和数据库存储比对
+      password = md5(`${password}${PWD_SALT}`)
+      login(username, password).then((user) => {
+        if (!user || user.length === 0) {
+          new Result('登录失败').fail(res)
+        } else {
+          // JWT认证
+          const token = jwt.sign({ username }, PRIVATE_KEY, {
+            expiresIn: JWT_EXPIRED
+          })
+          // 使用Result类返回请求成功的信息
+          new Result({ token }, '登录成功').success(res)
+        }
+      })
+    }
+  }
+)
+
+router.get('/info', function (req, res) {
+  const decode = decoded(req)
+  // console.log(decode) //解析出{ username: 'admin', iat: 1651822928, exp: 1651826528 }
+  if (decode && decode.username) {
+    findUser(decode.username).then((user) => {
+      if (user) {
+        user.roles = [user.role]
+        new Result(user, '用户信息查询成功').success(res)
+      } else {
+        new Result('用户信息查询失败').fail(res)
+      }
+    })
+  } else {
+    new Result('用户信息查询失败').fail(res)
+  }
+})
+
+module.exports = router
