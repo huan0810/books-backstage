@@ -1,9 +1,15 @@
 const { env } = require('./env')
-// 定义文件上传路径(本地环境：线上文件)
+// 定义文件上传路径(本地环境：线上环境)
 const UPLOAD_PATH =
   env === 'dev'
     ? 'D:\\ProgramFiles\\nginx\\nginx-1.21.6\\upload\\books-manage-upload'
     : '/root/upload/ebook'
+
+// 电子书文件上传后的url下载地址(本地服务器：线上服务器)
+const UPLOAD_URL =
+  env === 'dev'
+    ? 'http://books.backstage.com:8089/books-manage-upload'
+    : 'http://www.backstage.com:8089/books-manage-upload'
 
 // 定义接口状态码，CODE_ERROR失败，CODE_SUCCESS成功，并导出
 module.exports = {
@@ -18,5 +24,8 @@ module.exports = {
   // JWT认证
   PRIVATE_KEY: '这又是一个密钥',
   JWT_EXPIRED: 60 * 60,
-  UPLOAD_PATH
+  UPLOAD_PATH,
+  UPLOAD_URL,
+  // 上传电子书的默认文件类型是epub
+  MIME_TYPE_EPUB: 'application/epub+zip'
 }
