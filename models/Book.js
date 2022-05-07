@@ -1,5 +1,6 @@
-const { MIME_TYPE_EPUB, UPLOAD_URL, UPLOAD_PATH } = require('../utils/constant')
 const fs = require('fs')
+const xml2js = require('xml2js').parseString
+const { MIME_TYPE_EPUB, UPLOAD_URL, UPLOAD_PATH } = require('../utils/constant')
 // 引入Epub库
 const Epub = require('../utils/epub')
 
@@ -16,7 +17,7 @@ class Book {
   }
 
   createBookFromFile(file) {
-    console.log('createBookFromFile', file)
+    // console.log('createBookFromFile', file)
     const {
       destination,
       filename,
@@ -82,7 +83,7 @@ class Book {
           reject(err)
         } else {
           // 解析完毕，没有错误，就可以的到metadata了，记录了电子书信息的对象
-          console.log('epub end', epub.metadata)
+          // console.log('epub end', epub.metadata)
           const { language, creator, creatorFileAs, title, cover, publisher } =
             epub.metadata
           if (!title) {
@@ -93,31 +94,143 @@ class Book {
             this.author = creator || creatorFileAs || 'unknown'
             this.publisher = publisher || 'unknown'
             this.rootFile = epub.rootFile
-            const handleGetImage = (err, file, mimeType) => {
-              if (err) {
-                reject(err)
-              } else {
-                // 取封面图片文件后缀名
-                const suffix = mimeType.split('/')[1]
-                // 因为是在箭头函数里面，此处this跟作用域this指向一样，指向Book实例
-                const coverPath = `${UPLOAD_PATH}/img/${this.fileName}.${suffix}`
-                const coverUrl = `${UPLOAD_URL}/img/${this.fileName}.${suffix}`
-                // 把封面图片写入磁盘
-                fs.writeFileSync(coverPath, file, 'binary')
-                // 封面图片的相对路径
-                this.coverPath = `/img/${this.fileName}.${suffix}`
-                this.cover = coverUrl
-                resolve(this) //传入当前的book实例
+            // 解压电子书
+            try {
+              // 先解压，再解析解压文件中的目录
+              this.unzip() //调用解压方法
+              this.parseContents(epub) // 调用解析目录方法
+              const handleGetImage = (err, file, mimeType) => {
+                if (err) {
+                  reject(err)
+                } else {
+                  // 取封面图片文件后缀名
+                  const suffix = mimeType.split('/')[1]
+                  // 因为是在箭头函数里面，此处this跟作用域this指向一样，指向Book实例
+                  const coverPath = `${UPLOAD_PATH}/img/${this.fileName}.${suffix}`
+                  const coverUrl = `${UPLOAD_URL}/img/${this.fileName}.${suffix}`
+                  // 把封面图片写入磁盘
+                  fs.writeFileSync(coverPath, file, 'binary')
+                  // 封面图片的相对路径
+                  this.coverPath = `/img/${this.fileName}.${suffix}`
+                  this.cover = coverUrl
+                  resolve(this) //传入当前的book实例
+                }
               }
+              epub.getImage(cover, handleGetImage)
+            } catch (err) {
+              reject(err)
             }
-            console.log('cover', cover)
-            epub.getImage(cover, handleGetImage)
           }
         }
       })
       // 解析电子书
       epub.parse()
     })
+  }
+  // 定义解压方法
+  unzip() {
+    const AdmZip = require('adm-zip')
+    const zip = new AdmZip(Book.genPath(this.path))
+    // 将以上路径下的文件解压，放入目标路径.true表示如果路径存在就覆盖
+    zip.extractAllTo(Book.genPath(this.unzipPath), true)
+  }
+  // 定义解析目录方法
+  parseContents(epub) {
+    function getNcxFilePath() {
+      // console.log(epub)
+      //epub下面的spine属性的href属性，存放的是目录文件toc.ncx的路径
+      const spine = epub && epub.spine
+      const manifest = epub && epub.manifest
+      const ncx = spine.toc && spine.toc.href
+      const id = spine.toc && spine.toc.id
+      // console.log('spine', ncx, manifest[id].href)
+      if (ncx) {
+        return ncx
+      } else {
+        // 若ncx不存在(即spine.toc.href不存在)，就根据id从manifest里面查找
+        return manifest[id].href
+      }
+    }
+
+    // 目录解析
+    function findParent(array) {
+      return array.map((item) => {
+        return item
+      })
+    }
+
+    // 把目录的树状结构变为一维结构
+    function flatten(array) {
+      // map() 方法创建一个新数组
+      return [].concat(
+        ...array.map((item) => {
+          return item
+        })
+      )
+    }
+
+    // getNcxFilePath()获取的是相对路径，需要再转成绝对路径
+    const ncxFilePath = Book.genPath(`${this.unzipPath}/${getNcxFilePath()}`)
+    if (fs.existsSync(ncxFilePath)) {
+      // ncxFilePath存在，即目录文件存在，就开始解析目录
+      return new Promise((resolve, reject) => {
+        const xml = fs.readFileSync(ncxFilePath, 'utf-8')
+        const fileName = this.fileName
+        xml2js(
+          xml,
+          {
+            explicitArray: false,
+            ignoreAttrs: false
+          },
+          function (err, json) {
+            if (err) {
+              reject(err)
+            } else {
+              const navMap = json.ncx.navMap
+              console.log('xml', JSON.stringify(navMap))
+              if (navMap.navPoint && navMap.navPoint.length > 0) {
+                // 目录解析
+                navMap.navPoint = findParent(navMap.navPoint)
+                // 把树状结构变为一维结构
+                const newNavMap = flatten(navMap.navPoint)
+                const chapters = []
+                // epub.flow就是根据目录解析出来的展示顺序
+                epub.flow.forEach((chapter, index) => {
+                  if (index > newNavMap.length - 1) {
+                    return
+                  }
+                  const nav = newNavMap[index]
+                  // 获取章节的URL，放入chapter.text
+                  chapter.text = `${UPLOAD_URL}/unzip/${fileName}/${chapter.href}`
+                  // console.log(chapter.text)
+                  if (nav && nav.navLabel) {
+                    chapter.label = nav.navLabel.text || ''
+                  } else {
+                    chapter.label = ''
+                  }
+                  chapter.navId = nav['$'].id
+                  chapter.fileName = fileName
+                  chapter.order = index + 1
+                  chapters.push(chapter)
+                })
+                console.log(chapters)
+              } else {
+                reject(new Error('目录解析失败，目录长度为0'))
+              }
+            }
+          }
+        )
+      })
+    } else {
+      throw new Error('目录文件不存在')
+    }
+  }
+  // 传入相对路径，生成绝对路径
+  static genPath(path) {
+    if (!path.startsWith('/')) {
+      path = `/${path}`
+    }
+    return `${UPLOAD_PATH}${path}`
   }
 }
 
