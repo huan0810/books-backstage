@@ -1,4 +1,6 @@
 const fs = require('fs')
+const path = require('path')
+const { pid } = require('process')
 const xml2js = require('xml2js').parseString
 const { MIME_TYPE_EPUB, UPLOAD_URL, UPLOAD_PATH } = require('../utils/constant')
 // 引入Epub库
@@ -55,13 +57,14 @@ class Book {
     this.author = '' //作者
     this.publisher = '' //出版社
     this.contents = [] //目录
+    this.contentsTree = [] //树状目录结构
     this.cover = '' //封面图片URL
     this.coverPath = '' //封面图片路径
     this.category = -1 //电子书分类ID
     this.categoryText = '' //分类名称
     this.language = '' //语种
     this.unzipUrl = unzipUrl //解压后文件夹的url地址
-    this.originalname = originalname //电子书文件的原名
+    this.originalName = originalname //电子书文件的原名
   }
   createBookFromData() {}
   // 解析电子书
@@ -116,8 +119,9 @@ class Book {
               // 先解压，再解析解压文件中的目录
               this.unzip() //调用解压方法
               // 调用解析目录方法
-              this.parseContents(epub).then(({ chapters }) => {
+              this.parseContents(epub).then(({ chapters, chaptersTree }) => {
                 this.contents = chapters
+                this.contentsTree = chaptersTree
                 epub.getImage(cover, handleGetImage)
               })
             } catch (err) {
@@ -195,6 +199,10 @@ class Book {
       // ncxFilePath存在，即目录文件存在，就开始解析目录
       return new Promise((resolve, reject) => {
         const xml = fs.readFileSync(ncxFilePath, 'utf-8')
+        // ncxFilePath是目录文件toc.ncx的绝对路径
+        const dir = path.dirname(ncxFilePath).replace(UPLOAD_PATH, '')
+        // console.log('ncxFilePath', ncxFilePath)
+        // console.log('dir', dir)
         const fileName = this.fileName
         xml2js(
           xml,
@@ -214,29 +222,37 @@ class Book {
                 // 把树状结构变为一维结构
                 const newNavMap = flatten(navMap.navPoint)
                 const chapters = []
+                // console.log('newNavMap', newNavMap[0].content['$'])
                 // epub.flow就是根据目录解析出来的展示顺序
-                epub.flow.forEach((chapter, index) => {
-                  if (index > newNavMap.length - 1) {
-                    return
-                  }
-                  const nav = newNavMap[index]
+                // epub.flow是阅读电子书的阅读顺序，而newNavMap是目录的信息，故解析目录时应该用newNavMap
+                newNavMap.forEach((chapter, index) => {
+                  const src = chapter.content['$'].src
                   // 获取章节的URL，放入chapter.text
-                  chapter.text = `${UPLOAD_URL}/unzip/${fileName}/${chapter.href}`
-                  // console.log(chapter.text)
-                  if (nav && nav.navLabel) {
-                    chapter.label = nav.navLabel.text || ''
-                  } else {
-                    chapter.label = ''
-                  }
-                  chapter.level = nav.level
-                  chapter.pid = nav.pid
-                  chapter.navId = nav['$'].id
+                  chapter.text = `${UPLOAD_URL}${dir}/${src}`
+                  chapter.label = chapter.navLabel.text || ''
+                  chapter.navId = chapter['$'].id
                   chapter.fileName = fileName
                   chapter.order = index + 1
                   chapters.push(chapter)
                 })
                 // console.log('chapters', chapters)
-                resolve({ chapters })
+                // chapters是把目录结构扁平化的一维数组，这里再转换成树状结构，再返回给前端
+                // 这样前端的逻辑会少一点
+                const chaptersTree = []
+                chapters.forEach((c) => {
+                  c.children = []
+                  if (c.pid === '') {
+                    // 若当前项有父级目录，pid就存放父级目录的navId
+                    // pid为空，说明当前项是一级目录，直接放入chaptersTree
+                    chaptersTree.push(c)
+                  } else {
+                    // pid不为空，说明当前项有父级目录,找到父级目录并放入其children数组中
+                    const parent = chapters.find((_) => _.navId === c.pid)
+                    parent.children.push(c)
+                  }
+                })
+                // console.log('chaptersTree', chaptersTree)
+                resolve({ chapters, chaptersTree })
               } else {
                 reject(new Error('目录解析失败，目录长度为0'))
               }
