@@ -18,8 +18,8 @@ router.post(
       book
         .parse()
         .then((book) => {
-          // console.log('book', book)
-          new Result('上传电子书成功').success(res)
+          console.log('book', book)
+          new Result(book, '上传电子书成功').success(res)
         })
         .catch((err) => {
           // 服务端发生解析异常，向前端返回500错误

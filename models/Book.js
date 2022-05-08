@@ -94,29 +94,32 @@ class Book {
             this.author = creator || creatorFileAs || 'unknown'
             this.publisher = publisher || 'unknown'
             this.rootFile = epub.rootFile
+            const handleGetImage = (err, file, mimeType) => {
+              if (err) {
+                reject(err)
+              } else {
+                // 取封面图片文件后缀名
+                const suffix = mimeType.split('/')[1]
+                // 因为是在箭头函数里面，此处this跟作用域this指向一样，指向Book实例
+                const coverPath = `${UPLOAD_PATH}/img/${this.fileName}.${suffix}`
+                const coverUrl = `${UPLOAD_URL}/img/${this.fileName}.${suffix}`
+                // 把封面图片写入磁盘
+                fs.writeFileSync(coverPath, file, 'binary')
+                // 封面图片的相对路径
+                this.coverPath = `/img/${this.fileName}.${suffix}`
+                this.cover = coverUrl
+                resolve(this) //传入当前的book实例
+              }
+            }
             // 解压电子书
             try {
               // 先解压，再解析解压文件中的目录
               this.unzip() //调用解压方法
-              this.parseContents(epub) // 调用解析目录方法
-              const handleGetImage = (err, file, mimeType) => {
-                if (err) {
-                  reject(err)
-                } else {
-                  // 取封面图片文件后缀名
-                  const suffix = mimeType.split('/')[1]
-                  // 因为是在箭头函数里面，此处this跟作用域this指向一样，指向Book实例
-                  const coverPath = `${UPLOAD_PATH}/img/${this.fileName}.${suffix}`
-                  const coverUrl = `${UPLOAD_URL}/img/${this.fileName}.${suffix}`
-                  // 把封面图片写入磁盘
-                  fs.writeFileSync(coverPath, file, 'binary')
-                  // 封面图片的相对路径
-                  this.coverPath = `/img/${this.fileName}.${suffix}`
-                  this.cover = coverUrl
-                  resolve(this) //传入当前的book实例
-                }
-              }
-              epub.getImage(cover, handleGetImage)
+              // 调用解析目录方法
+              this.parseContents(epub).then(({ chapters }) => {
+                this.contents = chapters
+                epub.getImage(cover, handleGetImage)
+              })
             } catch (err) {
               reject(err)
             }
@@ -153,8 +156,18 @@ class Book {
     }
 
     // 目录解析
-    function findParent(array) {
+    function findParent(array, level = 0, pid = '') {
       return array.map((item) => {
+        item.level = level
+        item.pid = pid
+        if (item.navPoint && item.navPoint.length > 0) {
+          // navPoint中还嵌套着navPoint，且navPoint又是一个数组时
+          item.navPoint = findParent(item.navPoint, level + 1, item['$'].id)
+        } else if (item.navPoint) {
+          // navPoint是一个对象时
+          item.navPoint.level = level
+          item.navPoint.pid = item['$'].id
+        }
         return item
       })
     }
@@ -164,6 +177,13 @@ class Book {
       // map() 方法创建一个新数组
       return [].concat(
         ...array.map((item) => {
+          if (item.navPoint && item.navPoint.length > 0) {
+            // navPoint中还嵌套着navPoint，且navPoint又是一个数组时
+            return [].concat(item, ...flatten(item.navPoint))
+          } else if (item.navPoint) {
+            // navPoint是一个对象时,直接和父结构放入一个数组中
+            return [].concat(item, item.navPoint)
+          }
           return item
         })
       )
@@ -187,7 +207,7 @@ class Book {
               reject(err)
             } else {
               const navMap = json.ncx.navMap
-              console.log('xml', JSON.stringify(navMap))
+              // console.log('xml', JSON.stringify(navMap))
               if (navMap.navPoint && navMap.navPoint.length > 0) {
                 // 目录解析
                 navMap.navPoint = findParent(navMap.navPoint)
@@ -208,12 +228,15 @@ class Book {
                   } else {
                     chapter.label = ''
                   }
+                  chapter.level = nav.level
+                  chapter.pid = nav.pid
                   chapter.navId = nav['$'].id
                   chapter.fileName = fileName
                   chapter.order = index + 1
                   chapters.push(chapter)
                 })
-                console.log(chapters)
+                // console.log('chapters', chapters)
+                resolve({ chapters })
               } else {
                 reject(new Error('目录解析失败，目录长度为0'))
               }
