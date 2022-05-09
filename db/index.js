@@ -77,7 +77,7 @@ function insert(book, tableName) {
         const keysString = keys.join(',')
         const valuesString = values.join(',')
         sql = `${sql}(${keysString}) values (${valuesString})`
-        // debug && console.log(sql)
+        debug && console.log(sql)
         const conn = connect() //创建数据库连接
         try {
           conn.query(sql, (err, result) => {

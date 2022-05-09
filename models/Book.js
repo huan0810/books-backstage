@@ -87,6 +87,7 @@ class Book {
     // 图书分类
     this.category = data.category || 99
     this.categoryText = data.categoryText || '自定义'
+    this.contents = data.contents || []
   }
   // 解析电子书
   parse() {
@@ -225,6 +226,7 @@ class Book {
         // console.log('ncxFilePath', ncxFilePath)
         // console.log('dir', dir)
         const fileName = this.fileName
+        const unzipPath = this.unzipPath
         xml2js(
           xml,
           {
@@ -249,6 +251,8 @@ class Book {
                 newNavMap.forEach((chapter, index) => {
                   const src = chapter.content['$'].src
                   // 获取章节的URL，放入chapter.text
+                  chapter.id = `${src}`
+                  chapter.href = `${dir}/${src}`.replace(unzipPath, '')
                   chapter.text = `${UPLOAD_URL}${dir}/${src}`
                   chapter.label = chapter.navLabel.text || ''
                   chapter.navId = chapter['$'].id
@@ -308,6 +312,10 @@ class Book {
       category: this.category,
       categoryText: this.categoryText
     }
+  }
+  // 获取用户提交的目录，并做一些预处理
+  getContents() {
+    return this.contents
   }
   // 传入相对路径，生成绝对路径
   static genPath(path) {

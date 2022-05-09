@@ -1,5 +1,6 @@
 const Book = require('../models/Book')
 const db = require('../db')
+const _ = require('lodash')
 
 // 判断传入电子书在数据库中是否已存在
 function exists(book) {
@@ -10,7 +11,27 @@ function exists(book) {
 function removeBook(book) {}
 
 // 向数据库中插入电子书目录
-function insertContents(book) {}
+async function insertContents(book) {
+  const contents = book.getContents()
+  if (contents && contents.length > 0) {
+    for (let i = 0; i < contents.length; i++) {
+      const content = contents[i]
+      const _content = _.pick(content, [
+        'fileName',
+        'id',
+        'href',
+        'order',
+        'level',
+        'text',
+        'label',
+        'pid',
+        'navId'
+      ])
+      console.log('_content', _content)
+      await db.insert(_content, 'contents')
+    }
+  }
+}
 
 // 向数据库新增电子书
 function insertBook(book) {
