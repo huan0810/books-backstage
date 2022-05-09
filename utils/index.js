@@ -2,6 +2,11 @@ const crypto = require('crypto')
 const jwt = require('jsonwebtoken')
 const { PRIVATE_KEY } = require('./constant')
 
+// 判断传入参数是否为一个对象
+function isObject(o) {
+  return Object.prototype.toString.call(o) === '[object Object]'
+}
+
 // 此方法用于给用户输入的密码加密
 function md5(s) {
   // 注意参数需要为 String 类型，否则会出错
@@ -18,5 +23,6 @@ function decoded(req) {
 
 module.exports = {
   md5,
-  decoded
+  decoded,
+  isObject
 }

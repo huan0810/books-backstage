@@ -4,9 +4,12 @@ const boom = require('boom')
 const { UPLOAD_PATH } = require('../utils/constant')
 const Result = require('../models/Result')
 const Book = require('../models/Book')
+const { decoded } = require('../utils')
+const bookService = require('../services/book')
 
 const router = express.Router()
 
+// 向服务器上传电子书API
 router.post(
   '/upload',
   multer({ dest: `${UPLOAD_PATH}/book` }).single('file'),
@@ -28,5 +31,24 @@ router.post(
     }
   }
 )
+
+// 向数据库中新增电子书API
+router.post('/create', function (req, res, next) {
+  // decoded()方法从req的header的token中解析出用户名及过期时间
+  const decode = decoded(req)
+  if (decode && decode.username) {
+    req.body.username = decode.username
+  }
+  // book实例是前端传过来的参数，经Book对象添加属性之后，得到的实例对象
+  const book = new Book(null, req.body)
+  bookService
+    .insertBook(book)
+    .then(() => {
+      new Result('添加电子书成功').success(res)
+    })
+    .catch((err) => {
+      next(boom.badImplementation(err))
+    })
+})
 
 module.exports = router

@@ -66,7 +66,28 @@ class Book {
     this.unzipUrl = unzipUrl //解压后文件夹的url地址
     this.originalName = originalname //电子书文件的原名
   }
-  createBookFromData() {}
+  createBookFromData(data) {
+    this.fileName = data.fileName
+    this.cover = data.coverPath
+    this.title = data.title
+    this.author = data.author
+    this.publisher = data.publisher
+    this.bookId = data.fileName
+    this.language = data.language
+    this.rootFile = data.rootFile
+    this.originalName = data.originalName
+    this.path = data.filePath
+    this.filePath = data.path || data.filePath
+    this.unzipPath = data.unzipPath
+    this.coverPath = data.coverPath
+    this.createUser = data.username
+    this.createDt = new Date().getTime()
+    this.updateDt = new Date().getTime()
+    this.updateType = data.updateType === 0 ? data.updateType : 1
+    // 图书分类
+    this.category = data.category || 99
+    this.categoryText = data.categoryText || '自定义'
+  }
   // 解析电子书
   parse() {
     return new Promise((resolve, reject) => {
@@ -262,6 +283,30 @@ class Book {
       })
     } else {
       throw new Error('目录文件不存在')
+    }
+  }
+  // 将Book对象中与数据库相关字段提取出来，供插入数据库时使用
+  toDb() {
+    return {
+      fileName: this.fileName,
+      cover: this.coverPath,
+      title: this.title,
+      author: this.author,
+      publisher: this.publisher,
+      bookId: this.fileName,
+      language: this.language,
+      rootFile: this.rootFile,
+      originalName: this.originalName,
+      filePath: this.path || this.filePath,
+      unzipPath: this.unzipPath,
+      coverPath: this.coverPath,
+      createUser: this.createUser,
+      createDt: this.createDt,
+      updateDt: this.updateDt,
+      updateType: this.updateType,
+      // 图书分类
+      category: this.category,
+      categoryText: this.categoryText
     }
   }
   // 传入相对路径，生成绝对路径
