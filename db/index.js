@@ -2,6 +2,7 @@ const mysql = require('mysql')
 const config = require('./config')
 const { debug } = require('../utils/constant')
 const { isObject } = require('../utils')
+const { reject } = require('lodash')
 
 function connect() {
   return mysql.createConnection({
@@ -14,6 +15,7 @@ function connect() {
   })
 }
 
+// 查询一组数据
 function querySql(sql) {
   // 建立连接
   const conn = connect()
@@ -39,6 +41,7 @@ function querySql(sql) {
   })
 }
 
+// 查询一条数据
 function queryOne(sql) {
   return new Promise((resolve, reject) => {
     querySql(sql)
@@ -55,21 +58,21 @@ function queryOne(sql) {
   })
 }
 
-// 向数据库插入电子书
-function insert(book, tableName) {
+// 插入数据（电子书和目录）
+function insert(module, tableName) {
   return new Promise((resolve, reject) => {
     // 判断book是否是一个对象
-    if (!isObject(book)) {
+    if (!isObject(module)) {
       reject(new Error('插入数据库失败，插入数据非对象'))
     } else {
       const keys = []
       const values = []
-      Object.keys(book).forEach((key) => {
+      Object.keys(module).forEach((key) => {
         // hasOwnProperty(key)表示只要book对象自身上的key，而不考虑原型链上的属性
-        if (book.hasOwnProperty(key)) {
+        if (module.hasOwnProperty(key)) {
           // 给key加上``,防止有sql关键字而在查询数据库时出错，\`转义
           keys.push(`\`${key}\``)
-          values.push(`'${book[key]}'`) //值加上''
+          values.push(`'${module[key]}'`) //值加上''
         }
       })
       if (keys.length > 0 && values.length > 0) {
@@ -99,8 +102,44 @@ function insert(book, tableName) {
   })
 }
 
+// 编辑图书，更新数据库
+function update(model, tableName, where) {
+  return new Promise((resolve, reject) => {
+    if (!isObject(model)) {
+      reject(new Error('插入数据库失败，插入数据非对象'))
+    } else {
+      const entry = []
+      Object.keys(model).forEach((key) => {
+        if (model.hasOwnProperty(key)) {
+          entry.push(`\`${key}\`='${model[key]}'`)
+        }
+      })
+      if (entry.length > 0) {
+        let sql = `update \`${tableName}\` set`
+        sql = `${sql} ${entry.join(',')} ${where}`
+        debug && console.log(sql)
+        const conn = connect()
+        try {
+          conn.query(sql, (err, result) => {
+            if (err) {
+              reject(err)
+            } else {
+              resolve(result)
+            }
+          })
+        } catch (error) {
+          reject(error)
+        } finally {
+          conn.end()
+        }
+      }
+    }
+  })
+}
+
 module.exports = {
   querySql,
   queryOne,
-  insert
+  insert,
+  update
 }

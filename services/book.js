@@ -1,14 +1,29 @@
 const Book = require('../models/Book')
 const db = require('../db')
 const _ = require('lodash')
+const { reject } = require('lodash')
 
 // 判断传入电子书在数据库中是否已存在
 function exists(book) {
-  return false
+  // 书名，作者，出版社全部存在，就认为这本书已经存在
+  const { title, author, publisher } = book
+  const sql = `select * from book where title='${title}' and author='${author}' and publisher='${publisher}'`
+  return db.queryOne(sql)
 }
 
-// 移除电子书
-function removeBook(book) {}
+// 移除电子书,同时移除电子书在服务器中的文件，以及数据库记录
+async function removeBook(book) {
+  if (book) {
+    // 删除电子书文件
+    book.reset()
+    if (book.fileName) {
+      const removeBookSql = `delete from book where fileName='${book.fileName}'`
+      const removeContentsSql = `delete from contents where fileName='${book.fileName}'`
+      await db.querySql(removeBookSql)
+      await db.querySql(removeContentsSql)
+    }
+  }
+}
 
 // 向数据库中插入电子书目录
 async function insertContents(book) {
@@ -42,7 +57,7 @@ function insertBook(book) {
         const result = await exists(book) //判断电子书是否存在
         if (result) {
           // 电子书已存在，就移除电子书
-          await removeBook(book)
+          // await removeBook(book)
           reject(new Error('电子书已存在'))
         } else {
           // 电子书不存在，数据库新增记录
@@ -61,4 +76,46 @@ function insertBook(book) {
   })
 }
 
-module.exports = { insertBook }
+// 编辑图书，更新数据库
+function updateBook(book) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      if (book instanceof Book) {
+        const result = await getBook(book.fileName)
+        if (result) {
+          const model = book.toDb()
+          if (+result.updateType === 0) {
+            reject(new Error('内置图书不能编辑'))
+          } else {
+            await db.update(model, 'book', `where fileName='${book.fileName}'`)
+            resolve()
+          }
+        }
+      } else {
+        reject(new Error('添加的图书对象不合法'))
+      }
+    } catch (error) {
+      reject(error)
+    }
+  })
+}
+
+// 获取对应电子书信息API，返回前端以便于编辑电子书
+function getBook(fileName) {
+  return new Promise(async (resolve, reject) => {
+    // 根据前端传入的fileName，取数据库查询图书信息、目录信息
+    const bookSql = `select * from book where fileName='${fileName}'`
+    const contentsSql = `select * from contents where fileName='${fileName}' order by \`order\``
+    const book = await db.queryOne(bookSql)
+    const contents = await db.querySql(contentsSql)
+    if (book) {
+      book.cover = Book.genCoverUrl(book) // 获取封面
+      book.contentsTree = Book.genContentsTree(contents)
+      resolve(book)
+    } else {
+      reject(new Error('电子书不存在'))
+    }
+  })
+}
+
+module.exports = { insertBook, getBook, updateBook }

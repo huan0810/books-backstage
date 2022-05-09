@@ -51,4 +51,40 @@ router.post('/create', function (req, res, next) {
     })
 })
 
+// 编辑图书，更新数据库API
+router.post('/update', function (req, res, next) {
+  // decoded()方法从req的header的token中解析出用户名及过期时间
+  const decode = decoded(req)
+  if (decode && decode.username) {
+    req.body.username = decode.username
+  }
+  // book实例是前端传过来的参数，经Book对象添加属性之后，得到的实例对象
+  const book = new Book(null, req.body)
+  bookService
+    .updateBook(book)
+    .then(() => {
+      new Result('更新电子书成功').success(res)
+    })
+    .catch((err) => {
+      next(boom.badImplementation(err))
+    })
+})
+
+// 获取对应电子书信息API，返回前端以便于编辑电子书
+router.get('/get', function (req, res, next) {
+  const { fileName } = req.query
+  if (!fileName) {
+    next(boom.badRequest(new Error('参数fileName不能为空')))
+  } else {
+    bookService
+      .getBook(fileName)
+      .then((book) => {
+        new Result(book, '获取图书信息成功').success(res)
+      })
+      .catch((err) => {
+        next(boom.badImplementation(err))
+      })
+  }
+})
+
 module.exports = router

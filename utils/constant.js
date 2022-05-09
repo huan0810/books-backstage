@@ -11,6 +11,11 @@ const UPLOAD_URL =
     ? 'http://books.backstage.com:8089/books-manage-upload'
     : 'http://www.backstage.com:8089/books-manage-upload'
 
+const OLD_UPLOAD_URL =
+  env === 'dev'
+    ? 'http://books.backstage.com:8089/book/res/img'
+    : 'http://www.backstage.com:8089/book/res/img'
+
 // 定义接口状态码，CODE_ERROR失败，CODE_SUCCESS成功，并导出
 module.exports = {
   CODE_ERROR: -1,
@@ -26,6 +31,7 @@ module.exports = {
   JWT_EXPIRED: 60 * 60,
   UPLOAD_PATH,
   UPLOAD_URL,
+  OLD_UPLOAD_URL,
   // 上传电子书的默认文件类型是epub
   MIME_TYPE_EPUB: 'application/epub+zip'
 }

@@ -4,9 +4,8 @@ const router = require('./router')
 const bodyParser = require('body-parser')
 // cors解决跨域问题
 const cors = require('cors')
-
 const app = express()
-
+app.use(express.json({ limit: '2100000kb' }))
 app.use(cors())
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())

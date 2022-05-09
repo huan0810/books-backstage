@@ -2,7 +2,12 @@ const fs = require('fs')
 const path = require('path')
 const { pid } = require('process')
 const xml2js = require('xml2js').parseString
-const { MIME_TYPE_EPUB, UPLOAD_URL, UPLOAD_PATH } = require('../utils/constant')
+const {
+  MIME_TYPE_EPUB,
+  UPLOAD_URL,
+  OLD_UPLOAD_URL,
+  UPLOAD_PATH
+} = require('../utils/constant')
 // 引入Epub库
 const Epub = require('../utils/epub')
 
@@ -263,19 +268,7 @@ class Book {
                 // console.log('chapters', chapters)
                 // chapters是把目录结构扁平化的一维数组，这里再转换成树状结构，再返回给前端
                 // 这样前端的逻辑会少一点
-                const chaptersTree = []
-                chapters.forEach((c) => {
-                  c.children = []
-                  if (c.pid === '') {
-                    // 若当前项有父级目录，pid就存放父级目录的navId
-                    // pid为空，说明当前项是一级目录，直接放入chaptersTree
-                    chaptersTree.push(c)
-                  } else {
-                    // pid不为空，说明当前项有父级目录,找到父级目录并放入其children数组中
-                    const parent = chapters.find((_) => _.navId === c.pid)
-                    parent.children.push(c)
-                  }
-                })
+                const chaptersTree = Book.genContentsTree(chapters)
                 // console.log('chaptersTree', chaptersTree)
                 resolve({ chapters, chaptersTree })
               } else {
@@ -317,12 +310,79 @@ class Book {
   getContents() {
     return this.contents
   }
+  // 删除电子书3个文件
+  reset() {
+    if (Book.pathExists(this.filePath)) {
+      fs.unlinkSync(Book.genPath(this.filePath))
+    }
+    if (Book.pathExists(this.coverPath)) {
+      fs.unlinkSync(Book.genPath(this.coverPath))
+    }
+    if (Book.pathExists(this.unzipPath)) {
+      fs.rmdirSync(Book.genPath(this.unzipPath), { recursive: true })
+    }
+  }
+
   // 传入相对路径，生成绝对路径
   static genPath(path) {
     if (!path.startsWith('/')) {
       path = `/${path}`
     }
     return `${UPLOAD_PATH}${path}`
+  }
+  // 判断路径是否存在
+  static pathExists(path) {
+    if (path.startsWith(UPLOAD_PATH)) {
+      return fs.existsSync(path)
+    } else {
+      return fs.existsSync(Book.genPath(path))
+    }
+  }
+  // 生成电子书封面图片地址,用于编辑图书时的前端展示。兼容数据库中的旧数据
+  static genCoverUrl(book) {
+    const { cover } = book
+    if (+book.updateType === 0) {
+      // 数据库中旧数据
+      if (cover) {
+        if (cover.startsWith('/')) {
+          return `${OLD_UPLOAD_URL}${cover}`
+        } else {
+          return `${OLD_UPLOAD_URL}/${cover}`
+        }
+      } else {
+        return null
+      }
+    } else {
+      // 数据库中新数据
+      if (cover) {
+        if (cover.startsWith('/')) {
+          return `${UPLOAD_URL}${cover}`
+        } else {
+          return `${UPLOAD_URL}/${cover}`
+        }
+      } else {
+        return null
+      }
+    }
+  }
+  // 获取电子书目录,用于编辑图书时的前端展示。兼容数据库中的旧数据
+  static genContentsTree(contents) {
+    if (contents) {
+      const contentsTree = []
+      contents.forEach((c) => {
+        c.children = []
+        if (c.pid === '') {
+          // 若当前项有父级目录，pid就存放父级目录的navId
+          // pid为空，说明当前项是一级目录，直接放入chaptersTree
+          contentsTree.push(c)
+        } else {
+          // pid不为空，说明当前项有父级目录,找到父级目录并放入其children数组中
+          const parent = contents.find((_) => _.navId === c.pid)
+          parent.children.push(c)
+        }
+      })
+      return contentsTree
+    }
   }
 }
 
