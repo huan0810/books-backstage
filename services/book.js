@@ -171,6 +171,36 @@ async function listBook(query) {
   // 生成封面url,在列表中展示
   list.forEach((book) => (book.cover = Book.genCoverUrl(book)))
 
-  return { list, count: count[0].count, page, pageSize } //async await方法中返回得内容会自动转成Promise实例对象
+  //async await方法中返回得内容会自动转成Promise实例对象
+  return { list, count: count[0].count, page, pageSize }
 }
-module.exports = { insertBook, getBook, updateBook, getCategory, listBook }
+
+function deleteBook(fileName) {
+  return new Promise(async (resolve, reject) => {
+    let book = await getBook(fileName)
+    if (book) {
+      if (+book.updateType === 0) {
+        reject(new Error('内置电子书不能删除'))
+      } else {
+        // 生成Book实例对象,可以方便调用reset()方法,以删除电子书文件
+        const bookObj = new Book(null, book)
+        const bookSql = `delete from book where fileName='${fileName}'`
+        const contentsSql = `delete from contents where fileName='${fileName}'`
+        await db.querySql(bookSql)
+        await db.querySql(contentsSql)
+        bookObj.reset()
+        resolve()
+      }
+    } else {
+      reject(new Error('电子书不存在'))
+    }
+  })
+}
+module.exports = {
+  insertBook,
+  getBook,
+  updateBook,
+  getCategory,
+  listBook,
+  deleteBook
+}
