@@ -3,6 +3,7 @@ const db = require('../db')
 const _ = require('lodash')
 const { reject } = require('lodash')
 const { debug } = require('../utils/constant')
+const { genCoverUrl } = require('../models/Book')
 
 // 判断传入电子书在数据库中是否已存在
 function exists(book) {
@@ -166,6 +167,10 @@ async function listBook(query) {
 
   bookSql = `${bookSql} limit ${pageSize} offset ${offset}`
   const list = await db.querySql(bookSql)
+
+  // 生成封面url,在列表中展示
+  list.forEach((book) => (book.cover = Book.genCoverUrl(book)))
+
   return { list, count: count[0].count, page, pageSize } //async await方法中返回得内容会自动转成Promise实例对象
 }
 module.exports = { insertBook, getBook, updateBook, getCategory, listBook }
