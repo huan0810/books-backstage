@@ -155,8 +155,17 @@ async function listBook(query) {
     const order = symbol === '+' ? 'asc' : 'desc'
     bookSql = `${bookSql} order by \`${column}\` ${order}`
   }
+
+  // 分页功能实现,需要获取要查询的电子书总数
+  let countSql = `select count(*) as count from book`
+  if (where !== 'where') {
+    countSql = `${countSql} ${where}`
+  }
+  const count = await db.querySql(countSql)
+  // console.log('count', count)
+
   bookSql = `${bookSql} limit ${pageSize} offset ${offset}`
   const list = await db.querySql(bookSql)
-  return { list } //async await方法中返回得内容会自动转成Promise实例对象
+  return { list, count: count[0].count, page, pageSize } //async await方法中返回得内容会自动转成Promise实例对象
 }
 module.exports = { insertBook, getBook, updateBook, getCategory, listBook }
