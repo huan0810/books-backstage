@@ -137,9 +137,28 @@ function update(model, tableName, where) {
   })
 }
 
+// 在查询图书时，按前端传过来的条件生成where语句,查询分类，直接查询
+function and(where, key, val) {
+  if (where === 'where') {
+    return `${where} \`${key}\`='${val}'`
+  } else {
+    return `${where} and \`${key}\`='${val}'`
+  }
+}
+
+// 在查询图书时，按前端传过来的条件生成where语句。查询书名作者，模糊查询
+function andLike(where, key, val) {
+  if (where === 'where') {
+    return `${where} \`${key}\` like '%${val}%'`
+  } else {
+    return `${where} and \`${key}\` like '%${val}%'` //%表示0或多个的任意字符
+  }
+}
 module.exports = {
   querySql,
   queryOne,
   insert,
-  update
+  update,
+  and,
+  andLike
 }

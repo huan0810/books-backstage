@@ -2,6 +2,7 @@ const Book = require('../models/Book')
 const db = require('../db')
 const _ = require('lodash')
 const { reject } = require('lodash')
+const { debug } = require('../utils/constant')
 
 // 判断传入电子书在数据库中是否已存在
 function exists(book) {
@@ -118,4 +119,44 @@ function getBook(fileName) {
   })
 }
 
-module.exports = { insertBook, getBook, updateBook }
+// 获取所有电子书分类API
+async function getCategory() {
+  const sql = 'select * from category order by category asc'
+  const result = await db.querySql(sql)
+  const categoryList = []
+  result.forEach((item) => {
+    categoryList.push({
+      label: item.categoryText,
+      value: item.category,
+      num: item.num
+    })
+  })
+  return categoryList
+}
+
+// 根据查询条件获取图书列表
+async function listBook(query) {
+  debug && console.log(query)
+  const { category, author, title, page = 1, pageSize = 20, sort } = query
+  const offset = (page - 1) * pageSize //查询偏移量，从下一条数据开始查起
+  let bookSql = 'select * from book'
+  // 根据传入参数生成查询条件
+  let where = 'where'
+  title && (where = db.andLike(where, 'title', title))
+  author && (where = db.andLike(where, 'author', author))
+  category && (where = db.and(where, 'category', category))
+  if (where !== 'where') {
+    bookSql = `${bookSql} ${where}`
+  }
+  if (sort) {
+    // 按id升降序
+    const symbol = sort[0] //取+-号,代表升序或降序
+    const column = sort.slice(1) //取排序字段,如id
+    const order = symbol === '+' ? 'asc' : 'desc'
+    bookSql = `${bookSql} order by \`${column}\` ${order}`
+  }
+  bookSql = `${bookSql} limit ${pageSize} offset ${offset}`
+  const list = await db.querySql(bookSql)
+  return { list } //async await方法中返回得内容会自动转成Promise实例对象
+}
+module.exports = { insertBook, getBook, updateBook, getCategory, listBook }
