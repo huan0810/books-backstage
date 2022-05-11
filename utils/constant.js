@@ -1,4 +1,8 @@
 const { env } = require('./env')
+
+// 连接数据库的主机ip
+const dbHost = env === 'dev' ? 'localhost' : '101.35.116.38'
+
 // 定义文件上传路径(本地环境：线上环境)
 const UPLOAD_PATH =
   env === 'dev'
@@ -33,5 +37,6 @@ module.exports = {
   UPLOAD_URL,
   OLD_UPLOAD_URL,
   // 上传电子书的默认文件类型是epub
-  MIME_TYPE_EPUB: 'application/epub+zip'
+  MIME_TYPE_EPUB: 'application/epub+zip',
+  dbHost //数据库的主机ip
 }

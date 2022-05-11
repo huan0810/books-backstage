@@ -1,5 +1,7 @@
+const { dbHost } = require('../utils/constant')
+
 module.exports = {
-  host: 'localhost',
+  host: dbHost,
   user: 'root',
   password: '123456',
   database: 'books_manage',
