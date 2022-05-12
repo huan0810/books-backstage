@@ -14,5 +14,5 @@ app.use('/', router)
 // 启动服务器
 const server = app.listen(5000, function () {
   const { address, port } = server.address()
-  console.log('HTTP启动成功：http://localhost:%s', port)
+  console.log('HTTP启动成功：http://www.huan.com:%s', port)
 })

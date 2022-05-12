@@ -12,12 +12,12 @@ const UPLOAD_PATH =
 // 电子书文件上传后的url下载地址(本地服务器：线上服务器)
 const UPLOAD_URL =
   env === 'dev'
-    ? 'http://books.backstage.com:8089/books-manage-upload'
+    ? 'http://www.huan.com:8089/books-manage-upload'
     : 'http://101.35.116.38/books-manage-upload'
 
 const OLD_UPLOAD_URL =
   env === 'dev'
-    ? 'http://books.backstage.com:8089/book/res/img'
+    ? 'http://www.huan.com:8089/book/res/img'
     : 'http://101.35.116.38/book/res/img'
 
 // 定义接口状态码，CODE_ERROR失败，CODE_SUCCESS成功，并导出
