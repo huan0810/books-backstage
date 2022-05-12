@@ -7,18 +7,18 @@ const dbHost = env === 'dev' ? 'localhost' : '101.35.116.38'
 const UPLOAD_PATH =
   env === 'dev'
     ? 'D:\\ProgramFiles\\nginx\\nginx-1.21.6\\upload\\books-manage-upload'
-    : '/root/upload/ebook'
+    : '/root/nginx/upload/books-manage-upload'
 
 // 电子书文件上传后的url下载地址(本地服务器：线上服务器)
 const UPLOAD_URL =
   env === 'dev'
     ? 'http://books.backstage.com:8089/books-manage-upload'
-    : 'http://www.backstage.com:8089/books-manage-upload'
+    : 'http://101.35.116.38/books-manage-upload'
 
 const OLD_UPLOAD_URL =
   env === 'dev'
     ? 'http://books.backstage.com:8089/book/res/img'
-    : 'http://www.backstage.com:8089/book/res/img'
+    : 'http://101.35.116.38/book/res/img'
 
 // 定义接口状态码，CODE_ERROR失败，CODE_SUCCESS成功，并导出
 module.exports = {
